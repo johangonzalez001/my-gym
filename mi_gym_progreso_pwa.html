@@ -1,0 +1,1537 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Mi Gym Progreso</title>
+  
+  <!-- PWA Metadata & Theme -->
+  <meta name="theme-color" content="#121212">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Aplicación de seguimiento de entrenamiento de fuerza en casa PWA 100% offline">
+  
+  <!-- Dynamic PWA Manifest setup via Inline Data URI -->
+  <script>
+    (function() {
+      const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="%2310B981"><rect width="512" height="512" rx="100" fill="%2318181B"/><path d="M120 256h272M120 190v132M392 190v132M160 160v192M352 160v192" stroke="%2310B981" stroke-width="36" stroke-linecap="round"/></svg>`;
+      const iconUrl = 'data:image/svg+xml;utf8,' + svgIcon;
+      
+      const manifest = {
+        name: "Mi Gym Progreso",
+        short_name: "GymProgreso",
+        start_url: "./",
+        display: "standalone",
+        background_color: "#121212",
+        theme_color: "#10B981",
+        description: "Registro de entrenamiento de fuerza Torso/Pierna en casa",
+        icons: [
+          { src: iconUrl, sizes: "192x192 512x512", type: "image/svg+xml", purpose: "any maskable" }
+        ]
+      };
+      const stringManifest = JSON.stringify(manifest);
+      const blob = new Blob([stringManifest], {type: 'application/json'});
+      const manifestUrl = URL.createObjectURL(blob);
+      const link = document.createElement('link');
+      link.rel = 'manifest';
+      link.href = manifestUrl;
+      document.head.appendChild(link);
+      
+      // Apple touch icon
+      const appleLink = document.createElement('link');
+      appleLink.rel = 'apple-touch-icon';
+      appleLink.href = iconUrl;
+      document.head.appendChild(appleLink);
+    })();
+  </script>
+
+  <!-- Tailwind CSS via CDN for rapid utility styling (Self-contained structure with fallback styling built in) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+              accent: '#34d399'
+            },
+            darkbg: '#121212',
+            darkcard: '#1e1e1e',
+            darkinput: '#2a2a2a'
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Custom Core Styles for Touch targets and native mobile app feel -->
+  <style>
+    :root {
+      --app-bg: #121212;
+      --app-card: #1e1e1e;
+      --brand-green: #10b981;
+      --brand-accent: #34d399;
+    }
+    body {
+      background-color: var(--app-bg);
+      color: #e4e4e7;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      overflow-x: hidden;
+      padding-bottom: env(safe-area-inset-bottom, 16px);
+    }
+
+    /* Target sizes for optimal 1-handed mobile use */
+    .btn-touch {
+      min-height: 52px;
+      min-width: 52px;
+      touch-action: manipulation;
+    }
+
+    .btn-touch:active {
+      transform: scale(0.96);
+      opacity: 0.9;
+    }
+
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #18181b;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f3f46;
+      border-radius: 4px;
+    }
+
+    /* Pulse visual animation for Timer and Statuses */
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.03); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .animate-timer {
+      animation: pulse-ring 2s infinite ease-in-out;
+    }
+
+    /* Utility hide scrollbar */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-darkbg text-zinc-100 flex flex-col min-h-screen">
+
+  <!-- TOP APP BAR -->
+  <header class="sticky top-0 z-40 bg-zinc-900/90 backdrop-blur-md border-b border-zinc-800 px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-lg bg-brand-500/20 border border-brand-500 flex items-center justify-center text-brand-accent font-black text-lg">
+        🏋️
+      </div>
+      <h1 class="text-lg font-bold tracking-tight text-white">Mi Gym Progreso</h1>
+    </div>
+    <div id="pwa-install-container" class="hidden">
+      <button id="pwa-install-btn" class="text-xs bg-brand-500/20 text-brand-accent border border-brand-500/50 px-3 py-1.5 rounded-full font-semibold active:scale-95 transition">
+        📲 Instalable
+      </button>
+    </div>
+  </header>
+
+  <!-- UNFINISHED WORKOUT BANNER NOTIFICATION -->
+  <div id="resume-workout-banner" class="hidden bg-amber-500/10 border-b border-amber-500/30 px-4 py-3 text-amber-200 text-sm flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <span class="text-lg">⏳</span>
+      <div>
+        <p class="font-bold leading-tight">Entrenamiento en curso</p>
+        <p class="text-xs text-amber-300/80">Tienes una sesión sin terminar.</p>
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="discardPendingWorkout()" class="text-xs bg-zinc-800 text-zinc-300 px-3 py-1.5 rounded-lg border border-zinc-700">Descartar</button>
+      <button onclick="resumePendingWorkout()" class="text-xs bg-amber-500 text-zinc-950 px-3 py-1.5 rounded-lg font-bold">Continuar</button>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <main id="app-container" class="flex-1 max-w-lg w-full mx-auto p-4 pb-24">
+
+    <!-- 1. HOME SCREEN -->
+    <section id="view-home" class="space-y-5">
+      <!-- Title & Greeting -->
+      <div>
+        <h2 class="text-2xl font-black text-white">Rutina Torso / Pierna</h2>
+        <p class="text-xs text-zinc-400">4 días por semana · Enfoque Fuerza e Hipertrofia en casa</p>
+      </div>
+
+      <!-- Weekly Schedule Grid -->
+      <div class="space-y-2.5">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-400">Plan Semanal</h3>
+        <div id="weekly-schedule-list" class="space-y-2">
+          <!-- Dynamically generated by JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. ACTIVE WORKOUT SCREEN -->
+    <section id="view-workout" class="hidden space-y-4">
+      <!-- Session Header -->
+      <div class="flex items-center justify-between bg-zinc-900 p-3 rounded-xl border border-zinc-800">
+        <div>
+          <span id="workout-session-badge" class="text-xs px-2 py-0.5 rounded font-semibold bg-brand-500/20 text-brand-accent">
+            Sesión
+          </span>
+          <h2 id="workout-session-title" class="text-lg font-bold text-white mt-1">
+            Torso A
+          </h2>
+        </div>
+        <button onclick="confirmAbandonWorkout()" class="text-xs bg-red-500/10 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-lg">
+          Salir
+        </button>
+      </div>
+
+      <!-- Exercise Progress Bar -->
+      <div class="space-y-1">
+        <div class="flex justify-between text-xs text-zinc-400 font-medium">
+          <span id="exercise-progress-text">Ejercicio 1 de 5</span>
+          <span id="workout-timer-clock" class="text-brand-accent font-mono">00:00</span>
+        </div>
+        <div class="w-full bg-zinc-800 h-2 rounded-full overflow-hidden">
+          <div id="exercise-progress-bar" class="bg-brand-500 h-full w-0 transition-all duration-300"></div>
+        </div>
+      </div>
+
+      <!-- Active Exercise Card -->
+      <div id="active-exercise-card" class="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-4">
+        <div>
+          <h3 id="ex-title" class="text-xl font-black text-white leading-tight">Press de banca con barra</h3>
+          <p id="ex-target" class="text-xs text-brand-accent font-medium mt-0.5">Objetivo: 4 × 8–10</p>
+          <div id="ex-history-prev" class="text-xs text-zinc-400 bg-zinc-800/60 p-2 rounded-lg mt-2 border border-zinc-700/50">
+            Anterior: Cargando...
+          </div>
+        </div>
+
+        <!-- Sets Table / Container -->
+        <div id="sets-container" class="space-y-2.5">
+          <!-- Rows inserted dynamically -->
+        </div>
+      </div>
+
+      <!-- Floating/Embedded Rest Timer Component -->
+      <div id="rest-timer-box" class="bg-zinc-900/95 border border-brand-500/40 rounded-2xl p-4 shadow-xl text-center space-y-2">
+        <div class="flex justify-between items-center text-xs text-zinc-400">
+          <span class="font-semibold text-zinc-300">⏱️ TEMPORIZADOR DE DESCANSO</span>
+          <div class="flex gap-1">
+            <button onclick="setTimerDefault(60)" class="px-2 py-0.5 rounded bg-zinc-800 text-xs">60s</button>
+            <button onclick="setTimerDefault(90)" class="px-2 py-0.5 rounded bg-zinc-800 text-xs">90s</button>
+            <button onclick="setTimerDefault(120)" class="px-2 py-0.5 rounded bg-zinc-800 text-xs">120s</button>
+          </div>
+        </div>
+        <div id="timer-display" class="text-4xl font-black font-mono text-brand-accent py-1">
+          00:00
+        </div>
+        <div class="grid grid-cols-4 gap-2 pt-1">
+          <button onclick="toggleTimer()" id="timer-toggle-btn" class="btn-touch bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-xl text-sm">
+            Pausa
+          </button>
+          <button onclick="addTimerSeconds(30)" class="btn-touch bg-zinc-800 hover:bg-zinc-700 text-brand-accent font-bold rounded-xl text-sm">
+            +30s
+          </button>
+          <button onclick="skipTimer()" class="btn-touch bg-zinc-800 hover:bg-zinc-700 text-zinc-400 font-bold rounded-xl text-sm">
+            Saltar
+          </button>
+          <button onclick="resetTimer()" class="btn-touch bg-zinc-800 hover:bg-zinc-700 text-zinc-400 font-bold rounded-xl text-sm">
+            Reiniciar
+          </button>
+        </div>
+      </div>
+
+      <!-- Navigation Between Exercises -->
+      <div class="flex justify-between gap-2 pt-2">
+        <button onclick="prevExercise()" id="btn-prev-ex" class="flex-1 btn-touch bg-zinc-800 text-zinc-200 font-bold rounded-xl border border-zinc-700 disabled:opacity-30">
+          ← Anterior
+        </button>
+        <button onclick="nextExercise()" id="btn-next-ex" class="flex-1 btn-touch bg-brand-500 text-zinc-950 font-black rounded-xl border border-brand-400">
+          Siguiente →
+        </button>
+      </div>
+    </section>
+
+    <!-- 3. WORKOUT SUMMARY / FINISH SCREEN -->
+    <section id="view-summary" class="hidden space-y-5">
+      <div class="text-center space-y-2 py-4">
+        <div class="w-16 h-16 bg-brand-500/20 border-2 border-brand-500 rounded-full flex items-center justify-center text-3xl mx-auto">
+          🏆
+        </div>
+        <h2 class="text-2xl font-black text-white">¡Entrenamiento Completado!</h2>
+        <p id="summary-session-name" class="text-sm text-brand-accent font-semibold">Torso A</p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl text-center">
+          <span class="text-xs text-zinc-400 block">Duración</span>
+          <span id="summary-duration" class="text-2xl font-black text-white">48 min</span>
+        </div>
+        <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl text-center">
+          <span class="text-xs text-zinc-400 block">Ejercicios</span>
+          <span id="summary-exercises" class="text-2xl font-black text-white">5</span>
+        </div>
+        <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl text-center">
+          <span class="text-xs text-zinc-400 block">Series Totales</span>
+          <span id="summary-sets" class="text-2xl font-black text-white">17</span>
+        </div>
+        <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl text-center">
+          <span class="text-xs text-zinc-400 block">Repeticiones Totales</span>
+          <span id="summary-reps" class="text-2xl font-black text-white">142</span>
+        </div>
+      </div>
+
+      <!-- Neutrally Framed Comparison vs Previous -->
+      <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl space-y-2">
+        <h3 class="text-xs font-bold text-zinc-400 uppercase tracking-wider">Comparación con la sesión anterior</h3>
+        <p id="summary-comparison-text" class="text-sm text-zinc-300">
+          Repeticiones totales: 135 → 142
+        </p>
+      </div>
+
+      <button onclick="finishAndGoHome()" class="w-full btn-touch bg-brand-500 text-zinc-950 font-black rounded-xl text-base shadow-lg shadow-brand-500/10">
+        Volver al Inicio
+      </button>
+    </section>
+
+    <!-- 4. HISTORY SCREEN -->
+    <section id="view-history" class="hidden space-y-4">
+      <div>
+        <h2 class="text-2xl font-black text-white">Historial de Sesiones</h2>
+        <p class="text-xs text-zinc-400">Consultas detalladas de tus entrenamientos registrados</p>
+      </div>
+
+      <div id="history-list" class="space-y-3">
+        <!-- Dynamic History Cards -->
+      </div>
+    </section>
+
+    <!-- 5. PROGRESS SCREEN (CANVAS GRAPH) -->
+    <section id="view-progress" class="hidden space-y-4">
+      <div>
+        <h2 class="text-2xl font-black text-white">Progreso de Ejercicio</h2>
+        <p class="text-xs text-zinc-400">Evolución en el tiempo medida sin sesgos</p>
+      </div>
+
+      <!-- Exercise Selector -->
+      <div class="space-y-1">
+        <label class="text-xs font-semibold text-zinc-400">Seleccionar Ejercicio:</label>
+        <select id="progress-exercise-select" onchange="renderProgressChart()" class="w-full bg-zinc-900 border border-zinc-700 text-white rounded-xl p-3 text-sm focus:outline-none focus:border-brand-500">
+          <!-- Populated dynamically -->
+        </select>
+      </div>
+
+      <!-- Metric Selector -->
+      <div class="grid grid-cols-2 gap-2 text-xs">
+        <button onclick="setMetric('reps')" id="metric-btn-reps" class="p-2 rounded-lg bg-brand-500 text-zinc-950 font-bold">Reps Totales</button>
+        <button onclick="setMetric('weight')" id="metric-btn-weight" class="p-2 rounded-lg bg-zinc-800 text-zinc-300 font-semibold">Peso Máx (kg)</button>
+        <button onclick="setMetric('volume')" id="metric-btn-volume" class="p-2 rounded-lg bg-zinc-800 text-zinc-300 font-semibold">Volumen Total</button>
+        <button onclick="setMetric('bestSet')" id="metric-btn-bestSet" class="p-2 rounded-lg bg-zinc-800 text-zinc-300 font-semibold">Mejor Serie</button>
+      </div>
+
+      <!-- Chart Canvas Container -->
+      <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-2">
+        <div class="flex justify-between items-center">
+          <span id="chart-metric-title" class="text-xs font-bold text-brand-accent">Repeticiones Totales por Sesión</span>
+        </div>
+        
+        <div class="relative w-full h-60">
+          <canvas id="progress-canvas" class="w-full h-full block"></canvas>
+        </div>
+        
+        <p id="chart-empty-msg" class="hidden text-center text-xs text-zinc-500 py-8">
+          Registra este ejercicio varias veces para empezar a ver tu progreso.
+        </p>
+      </div>
+    </section>
+
+    <!-- 6. SETTINGS & DATA MANAGEMENT SCREEN -->
+    <section id="view-settings" class="hidden space-y-5">
+      <div>
+        <h2 class="text-2xl font-black text-white">Configuración y Datos</h2>
+        <p class="text-xs text-zinc-400">Preferencias locales y gestión de respaldo</p>
+      </div>
+
+      <!-- Preferences Form -->
+      <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-4">
+        <h3 class="text-xs font-bold text-zinc-400 uppercase tracking-wider">Ajustes de Sesión</h3>
+        
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-zinc-300">Descanso predeterminado (segundos)</label>
+          <select id="setting-default-rest" onchange="saveSettings()" class="w-full bg-zinc-800 border border-zinc-700 text-white rounded-xl p-3 text-sm">
+            <option value="60">60 segundos</option>
+            <option value="90">90 segundos</option>
+            <option value="120">120 segundos</option>
+          </select>
+        </div>
+
+        <div class="flex items-center justify-between pt-1">
+          <span class="text-sm font-medium text-zinc-300">Sonido de temporizador</span>
+          <input type="checkbox" id="setting-sound" onchange="saveSettings()" checked class="w-5 h-5 accent-brand-500 rounded">
+        </div>
+
+        <div class="flex items-center justify-between pt-1">
+          <span class="text-sm font-medium text-zinc-300">Vibración al terminar</span>
+          <input type="checkbox" id="setting-vibration" onchange="saveSettings()" checked class="w-5 h-5 accent-brand-500 rounded">
+        </div>
+      </div>
+
+      <!-- Backup & Restore -->
+      <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-3">
+        <h3 class="text-xs font-bold text-zinc-400 uppercase tracking-wider">Respaldo de Datos</h3>
+        <p class="text-xs text-zinc-400">
+          Tus datos se almacenan únicamente en este dispositivo. Utiliza Exportar respaldo para conservar una copia segura.
+        </p>
+
+        <div class="grid grid-cols-2 gap-3 pt-2">
+          <button onclick="exportDataJSON()" class="btn-touch bg-zinc-800 text-brand-accent border border-brand-500/40 rounded-xl font-bold text-xs flex items-center justify-center gap-1">
+            📥 Exportar respaldo
+          </button>
+          
+          <label class="btn-touch bg-zinc-800 text-zinc-200 border border-zinc-700 rounded-xl font-bold text-xs flex items-center justify-center gap-1 cursor-pointer">
+            📤 Importar respaldo
+            <input type="file" id="import-json-file" accept=".json" onchange="importDataJSON(event)" class="hidden">
+          </label>
+        </div>
+      </div>
+
+      <!-- PWA Files Download / Code Inspection -->
+      <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-2">
+        <h3 class="text-xs font-bold text-zinc-400 uppercase tracking-wider">Archivos de Aplicación PWA</h3>
+        <p class="text-xs text-zinc-400">Descarga los componentes de la PWA para usarlos por separado si lo prefieres.</p>
+        <div class="flex flex-wrap gap-2 pt-2">
+          <button onclick="downloadPwaFile('manifest')" class="px-3 py-1.5 bg-zinc-800 text-xs text-zinc-300 rounded-lg border border-zinc-700">manifest.json</button>
+          <button onclick="downloadPwaFile('sw')" class="px-3 py-1.5 bg-zinc-800 text-xs text-zinc-300 rounded-lg border border-zinc-700">service-worker.js</button>
+          <button onclick="downloadPwaFile('readme')" class="px-3 py-1.5 bg-zinc-800 text-xs text-zinc-300 rounded-lg border border-zinc-700">README.md</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- BOTTOM TAB BAR (ACCESSIBLE 1-HANDED NAVIGATION) -->
+  <nav class="fixed bottom-0 left-0 right-0 z-40 bg-zinc-900/95 backdrop-blur-md border-t border-zinc-800 px-2 py-1 max-w-lg mx-auto">
+    <div class="grid grid-cols-4 gap-1">
+      <button onclick="switchTab('home')" id="nav-btn-home" class="flex flex-col items-center py-2 text-brand-accent font-bold">
+        <span class="text-xl">🏠</span>
+        <span class="text-[10px] mt-0.5">Inicio</span>
+      </button>
+      <button onclick="switchTab('history')" id="nav-btn-history" class="flex flex-col items-center py-2 text-zinc-400">
+        <span class="text-xl">📅</span>
+        <span class="text-[10px] mt-0.5">Historial</span>
+      </button>
+      <button onclick="switchTab('progress')" id="nav-btn-progress" class="flex flex-col items-center py-2 text-zinc-400">
+        <span class="text-xl">📈</span>
+        <span class="text-[10px] mt-0.5">Progreso</span>
+      </button>
+      <button onclick="switchTab('settings')" id="nav-btn-settings" class="flex flex-col items-center py-2 text-zinc-400">
+        <span class="text-xl">⚙️</span>
+        <span class="text-[10px] mt-0.5">Ajustes</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- DETAIL MODAL FOR HISTORY ITEMS -->
+  <div id="history-modal" class="fixed inset-0 bg-black/80 z-50 hidden backdrop-blur-sm p-4 overflow-y-auto flex items-center justify-center">
+    <div class="bg-zinc-900 border border-zinc-800 w-full max-w-md rounded-2xl p-5 space-y-4 my-auto">
+      <div class="flex justify-between items-start">
+        <div>
+          <h3 id="modal-title" class="text-lg font-black text-white">Detalle de Sesión</h3>
+          <p id="modal-subtitle" class="text-xs text-zinc-400">Fecha</p>
+        </div>
+        <button onclick="closeHistoryModal()" class="text-zinc-400 text-xl font-bold px-2 py-1">✕</button>
+      </div>
+
+      <div id="modal-content" class="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+        <!-- Populated via JS -->
+      </div>
+
+      <button onclick="closeHistoryModal()" class="w-full btn-touch bg-zinc-800 text-white font-bold rounded-xl text-sm">
+        Cerrar
+      </button>
+    </div>
+  </div>
+
+  <script>
+    /* ==========================================================================
+       1. ROUTINE CONFIGURATION OBJECT (EASILY EDITABLE SINGLE OBJECT)
+       ========================================================================== */
+    const ROUTINE = {
+      session1: {
+        id: "session1",
+        name: "Torso A",
+        type: "Empuje",
+        restDefault: 90,
+        exercises: [
+          { id: "ex_bench_press", name: "Press de banca con barra", targetSets: 4, targetReps: "8–10", defaultWeight: "30" },
+          { id: "ex_db_press", name: "Press plano con mancuernas", targetSets: 3, targetReps: "10–12", defaultWeight: "10" },
+          { id: "ex_lat_raises", name: "Elevaciones laterales", targetSets: 3, targetReps: "12–15", defaultWeight: "10" },
+          { id: "ex_bench_dips", name: "Fondos en banco", targetSets: 3, targetReps: "8–12", defaultWeight: "Corporal" },
+          { id: "ex_tricep_band", name: "Extensión de tríceps con banda", targetSets: 3, targetReps: "12–15", defaultWeight: "Banda" }
+        ]
+      },
+      session2: {
+        id: "session2",
+        name: "Pierna A",
+        type: "Cuádriceps",
+        restDefault: 90,
+        exercises: [
+          { id: "ex_squat", name: "Sentadilla con barra", targetSets: 4, targetReps: "8–12", defaultWeight: "30" },
+          { id: "ex_lunges", name: "Zancadas con mancuernas", targetSets: 3, targetReps: "10/pierna", defaultWeight: "10" },
+          { id: "ex_quad_band", name: "Extensión de cuádriceps con banda", targetSets: 3, targetReps: "15", defaultWeight: "Banda" },
+          { id: "ex_calves_standing", name: "Elevación de gemelos de pie", targetSets: 4, targetReps: "15–20", defaultWeight: "30" },
+          { id: "ex_plank", name: "Plancha abdominal", targetSets: 3, targetReps: "20–30s", defaultWeight: "Corporal" }
+        ]
+      },
+      session3: {
+        id: "session3",
+        name: "Torso B",
+        type: "Tirón",
+        restDefault: 90,
+        exercises: [
+          { id: "ex_barbell_row", name: "Remo con barra", targetSets: 4, targetReps: "8–10", defaultWeight: "30" },
+          { id: "ex_db_row", name: "Remo unilateral con mancuerna", targetSets: 3, targetReps: "10–12/lado", defaultWeight: "10" },
+          { id: "ex_pullover", name: "Pullover con mancuerna", targetSets: 3, targetReps: "10–12", defaultWeight: "10" },
+          { id: "ex_bicep_curl", name: "Curl de bíceps con mancuernas", targetSets: 3, targetReps: "10–12", defaultWeight: "10" },
+          { id: "ex_face_pull", name: "Face pull con banda", targetSets: 3, targetReps: "15", defaultWeight: "Banda" }
+        ]
+      },
+      session4: {
+        id: "session4",
+        name: "Pierna B",
+        type: "Femoral/Glúteo",
+        restDefault: 90,
+        exercises: [
+          { id: "ex_rdl", name: "Peso muerto rumano con barra", targetSets: 4, targetReps: "8–10", defaultWeight: "30" },
+          { id: "ex_bulgarian", name: "Sentadilla búlgara", targetSets: 3, targetReps: "10/pierna", defaultWeight: "10" },
+          { id: "ex_hip_thrust", name: "Hip thrust con barra", targetSets: 4, targetReps: "10–12", defaultWeight: "30" },
+          { id: "ex_hamstring_band", name: "Curl femoral con banda", targetSets: 3, targetReps: "12–15", defaultWeight: "Banda" },
+          { id: "ex_calves_seated", name: "Gemelo sentado", targetSets: 3, targetReps: "15–20", defaultWeight: "20" }
+        ]
+      }
+    };
+
+    const WEEK_SCHEDULE = [
+      { day: "Lunes", sessionId: "session1", name: "Sesión 1 — Torso A" },
+      { day: "Martes", sessionId: "session2", name: "Sesión 2 — Pierna A" },
+      { day: "Miércoles", sessionId: null, name: "Descanso" },
+      { day: "Jueves", sessionId: "session3", name: "Sesión 3 — Torso B" },
+      { day: "Viernes", sessionId: "session4", name: "Sesión 4 — Pierna B" },
+      { day: "Sábado", sessionId: null, name: "Descanso" },
+      { day: "Domingo", sessionId: null, name: "Descanso" }
+    ];
+
+    /* ==========================================================================
+       2. DATABASE LAYER (IndexedDB Native Implementation)
+       ========================================================================== */
+    const DB_NAME = "MiGymProgresoDB";
+    const DB_VERSION = 1;
+    let db = null;
+
+    function initDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (e) => {
+          const database = e.target.result;
+          if (!database.objectStoreNames.contains("workouts")) {
+            const workoutStore = database.createObjectStore("workouts", { keyPath: "id" });
+            workoutStore.createIndex("date", "date", { unique: false });
+            workoutStore.createIndex("sessionId", "sessionId", { unique: false });
+          }
+          if (!database.objectStoreNames.contains("activeState")) {
+            database.createObjectStore("activeState", { keyPath: "key" });
+          }
+          if (!database.objectStoreNames.contains("settings")) {
+            database.createObjectStore("settings", { keyPath: "key" });
+          }
+        };
+        request.onsuccess = (e) => {
+          db = e.target.result;
+          resolve(db);
+        };
+        request.onerror = (e) => reject(e);
+      });
+    }
+
+    function dbSaveWorkout(workout) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(["workouts"], "readwrite");
+        const store = tx.objectStore("workouts");
+        store.put(workout);
+        tx.oncomplete = () => resolve();
+        tx.onerror = (e) => reject(e);
+      });
+    }
+
+    function dbGetAllWorkouts() {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(["workouts"], "readonly");
+        const store = tx.objectStore("workouts");
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = (e) => reject(e);
+      });
+    }
+
+    function dbSaveActiveState(state) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(["activeState"], "readwrite");
+        const store = tx.objectStore("activeState");
+        store.put({ key: "current_workout", data: state, updatedAt: new Date().toISOString() });
+        tx.oncomplete = () => resolve();
+        tx.onerror = (e) => reject(e);
+      });
+    }
+
+    function dbGetActiveState() {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(["activeState"], "readonly");
+        const store = tx.objectStore("activeState");
+        const request = store.get("current_workout");
+        request.onsuccess = () => resolve(request.result ? request.result.data : null);
+        request.onerror = (e) => reject(e);
+      });
+    }
+
+    function dbClearActiveState() {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(["activeState"], "readwrite");
+        const store = tx.objectStore("activeState");
+        store.delete("current_workout");
+        tx.oncomplete = () => resolve();
+        tx.onerror = (e) => reject(e);
+      });
+    }
+
+    function dbSaveSetting(key, value) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(["settings"], "readwrite");
+        const store = tx.objectStore("settings");
+        store.put({ key: key, value: value });
+        tx.oncomplete = () => resolve();
+        tx.onerror = (e) => reject(e);
+      });
+    }
+
+    function dbGetSetting(key, defaultValue) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(["settings"], "readonly");
+        const store = tx.objectStore("settings");
+        const request = store.get(key);
+        request.onsuccess = () => resolve(request.result ? request.result.value : defaultValue);
+        request.onerror = () => resolve(defaultValue);
+      });
+    }
+
+    /* ==========================================================================
+       3. APP GLOBAL STATE & CONTROLLER
+       ========================================================================== */
+    let activeSession = null; // Currently running workout state
+    let activeExIndex = 0;
+    let timerInterval = null;
+    let timerSecondsLeft = 0;
+    let timerRunning = false;
+    let selectedChartMetric = 'reps';
+    let userSettings = {
+      defaultRest: 90,
+      sound: true,
+      vibration: true
+    };
+
+    // Helper UUID
+    function generateUUID() {
+      return 'xxxx-4xxx-yxxx-xxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+
+    // App Startup
+    window.addEventListener("DOMContentLoaded", async () => {
+      try {
+        await initDB();
+        await loadSettings();
+        await registerServiceWorker();
+        renderWeeklySchedule();
+        checkPendingWorkout();
+        populateExerciseSelector();
+      } catch (err) {
+        console.error("Initialization error:", err);
+      }
+    });
+
+    function switchTab(tabName) {
+      const views = ['home', 'workout', 'summary', 'history', 'progress', 'settings'];
+      views.forEach(v => {
+        const el = document.getElementById(`view-${v}`);
+        if (el) el.classList.add('hidden');
+      });
+
+      const navBtns = ['home', 'history', 'progress', 'settings'];
+      navBtns.forEach(b => {
+        const btn = document.getElementById(`nav-btn-${b}`);
+        if (btn) {
+          btn.classList.remove('text-brand-accent', 'font-bold');
+          btn.classList.add('text-zinc-400');
+        }
+      });
+
+      const activeView = document.getElementById(`view-${tabName}`);
+      if (activeView) activeView.classList.remove('hidden');
+
+      const activeBtn = document.getElementById(`nav-btn-${tabName}`);
+      if (activeBtn) {
+        activeBtn.classList.remove('text-zinc-400');
+        activeBtn.classList.add('text-brand-accent', 'font-bold');
+      }
+
+      if (tabName === 'history') renderHistoryList();
+      if (tabName === 'progress') renderProgressChart();
+    }
+
+    /* ==========================================================================
+       4. HOME VIEW & SCHEDULE
+       ========================================================================== */
+    async function renderWeeklySchedule() {
+      const listEl = document.getElementById("weekly-schedule-list");
+      listEl.innerHTML = "";
+      
+      const allWorkouts = await dbGetAllWorkouts();
+      // Get today's completion status
+      const todayStr = new Date().toISOString().split("T")[0];
+
+      WEEK_SCHEDULE.forEach(item => {
+        const card = document.createElement("div");
+        card.className = "bg-zinc-900 border border-zinc-800 rounded-xl p-3 flex items-center justify-between";
+
+        if (!item.sessionId) {
+          card.innerHTML = `
+            <div class="flex items-center gap-3">
+              <span class="text-xs font-bold text-zinc-500 w-16">${item.day}</span>
+              <span class="text-sm font-semibold text-zinc-400">${item.name} 💤</span>
+            </div>
+          `;
+        } else {
+          const sess = ROUTINE[item.sessionId];
+          // Check if session completed recently
+          const isDone = allWorkouts.some(w => w.sessionId === item.sessionId && w.date === todayStr);
+
+          card.innerHTML = `
+            <div class="flex items-center gap-3">
+              <span class="text-xs font-bold text-zinc-400 w-16">${item.day}</span>
+              <div>
+                <p class="text-sm font-bold text-white">${sess.name}</p>
+                <p class="text-[10px] text-brand-accent">${sess.type}</p>
+              </div>
+            </div>
+            ${isDone ? `
+              <button onclick="startWorkout('${item.sessionId}')" class="text-xs bg-zinc-800 text-brand-accent border border-brand-500/30 px-3 py-2 rounded-xl font-bold flex items-center gap-1">
+                ✓ Completado <span class="text-[10px] text-zinc-400">(Repetir)</span>
+              </button>
+            ` : `
+              <button onclick="startWorkout('${item.sessionId}')" class="btn-touch text-xs bg-brand-500 hover:bg-brand-600 text-zinc-950 px-4 py-2 rounded-xl font-black shadow-md shadow-brand-500/10">
+                Iniciar Sesión
+              </button>
+            `}
+          `;
+        }
+        listEl.appendChild(card);
+      });
+    }
+
+    /* ==========================================================================
+       5. ACTIVE WORKOUT ENGINE & AUTO-SAVE
+       ========================================================================== */
+    async function startWorkout(sessionId) {
+      const routineSession = ROUTINE[sessionId];
+      if (!routineSession) return;
+
+      const allWorkouts = await dbGetAllWorkouts();
+
+      activeSession = {
+        id: generateUUID(),
+        date: new Date().toISOString().split("T")[0],
+        sessionId: sessionId,
+        sessionName: routineSession.name,
+        startTime: new Date().toISOString(),
+        endTime: null,
+        durationMinutes: 0,
+        exercises: routineSession.exercises.map(ex => {
+          return {
+            exerciseId: ex.id,
+            name: ex.name,
+            targetReps: ex.targetReps,
+            targetSets: ex.targetSets,
+            sets: Array.from({ length: ex.targetSets }, () => ({
+              reps: parseInt(ex.targetReps.split("–")[0]) || 10,
+              weight: ex.defaultWeight,
+              completed: false
+            }))
+          };
+        })
+      };
+
+      activeExIndex = 0;
+      await dbSaveActiveState(activeSession);
+      document.getElementById("resume-workout-banner").classList.add("hidden");
+      
+      switchTab('workout');
+      renderActiveWorkoutView();
+    }
+
+    async function checkPendingWorkout() {
+      const pending = await dbGetActiveState();
+      if (pending && !pending.endTime) {
+        document.getElementById("resume-workout-banner").classList.remove("hidden");
+      }
+    }
+
+    async function resumePendingWorkout() {
+      activeSession = await dbGetActiveState();
+      if (activeSession) {
+        activeExIndex = 0;
+        document.getElementById("resume-workout-banner").classList.add("hidden");
+        switchTab('workout');
+        renderActiveWorkoutView();
+      }
+    }
+
+    async function discardPendingWorkout() {
+      await dbClearActiveState();
+      document.getElementById("resume-workout-banner").classList.add("hidden");
+    }
+
+    async function renderActiveWorkoutView() {
+      if (!activeSession) return;
+
+      document.getElementById("workout-session-title").innerText = activeSession.sessionName;
+      
+      const totalEx = activeSession.exercises.length;
+      document.getElementById("exercise-progress-text").innerText = `Ejercicio ${activeExIndex + 1} de ${totalEx}`;
+      
+      const pct = ((activeExIndex + 1) / totalEx) * 100;
+      document.getElementById("exercise-progress-bar").style.width = `${pct}%`;
+
+      const ex = activeSession.exercises[activeExIndex];
+      document.getElementById("ex-title").innerText = ex.name;
+      document.getElementById("ex-target").innerText = `Objetivo: ${ex.targetSets} series × ${ex.targetReps}`;
+
+      // Previous performance retrieval
+      const prevText = await getPreviousPerformanceText(ex.exerciseId);
+      document.getElementById("ex-history-prev").innerText = prevText;
+
+      // Render Sets
+      const setsContainer = document.getElementById("sets-container");
+      setsContainer.innerHTML = "";
+
+      ex.sets.forEach((set, sIndex) => {
+        const row = document.createElement("div");
+        row.className = `p-3 rounded-xl border flex items-center justify-between gap-2 transition-all ${
+          set.completed ? "bg-brand-500/10 border-brand-500/50" : "bg-zinc-800/80 border-zinc-700/50"
+        }`;
+
+        row.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full ${set.completed ? 'bg-brand-500 text-zinc-950 font-black' : 'bg-zinc-700 text-zinc-300'} flex items-center justify-center text-xs font-bold">
+              ${sIndex + 1}
+            </span>
+          </div>
+
+          <!-- Reps Control -->
+          <div class="flex items-center bg-zinc-900 border border-zinc-700 rounded-xl overflow-hidden">
+            <button onclick="adjustReps(${sIndex}, -1)" class="w-10 h-10 flex items-center justify-center text-lg font-black text-brand-accent active:bg-zinc-800">-</button>
+            <input type="number" value="${set.reps}" onchange="updateRepsInput(${sIndex}, this.value)" class="w-12 bg-transparent text-center text-sm font-bold text-white focus:outline-none">
+            <button onclick="adjustReps(${sIndex}, 1)" class="w-10 h-10 flex items-center justify-center text-lg font-black text-brand-accent active:bg-zinc-800">+</button>
+          </div>
+
+          <!-- Weight Input -->
+          <div class="w-24">
+            <input type="text" value="${set.weight}" onchange="updateWeightInput(${sIndex}, this.value)" placeholder="Peso" class="w-full bg-zinc-900 border border-zinc-700 text-center text-xs font-semibold text-white rounded-xl py-2.5 px-1 focus:outline-none focus:border-brand-500">
+          </div>
+
+          <!-- Complete Set Button -->
+          <button onclick="toggleSetComplete(${sIndex})" class="btn-touch px-4 rounded-xl font-bold flex items-center justify-center text-sm ${
+            set.completed ? 'bg-brand-500 text-zinc-950 shadow-md shadow-brand-500/20' : 'bg-zinc-700 text-zinc-400 hover:text-white'
+          }">
+            ${set.completed ? '✓' : '○'}
+          </button>
+        `;
+        setsContainer.appendChild(row);
+      });
+
+      // Update Next/Prev Button State
+      document.getElementById("btn-prev-ex").disabled = (activeExIndex === 0);
+      const nextBtn = document.getElementById("btn-next-ex");
+      if (activeExIndex === totalEx - 1) {
+        nextBtn.innerText = "Finalizar 🏆";
+        nextBtn.className = "flex-1 btn-touch bg-brand-500 text-zinc-950 font-black rounded-xl border border-brand-400 shadow-lg shadow-brand-500/20";
+      } else {
+        nextBtn.innerText = "Siguiente →";
+        nextBtn.className = "flex-1 btn-touch bg-brand-500 text-zinc-950 font-black rounded-xl border border-brand-400";
+      }
+    }
+
+    async function adjustReps(setIndex, delta) {
+      if (!activeSession) return;
+      const set = activeSession.exercises[activeExIndex].sets[setIndex];
+      set.reps = Math.max(0, set.reps + delta);
+      await saveCurrentProgress();
+      renderActiveWorkoutView();
+    }
+
+    async function updateRepsInput(setIndex, val) {
+      if (!activeSession) return;
+      const parsed = parseInt(val);
+      activeSession.exercises[activeExIndex].sets[setIndex].reps = isNaN(parsed) ? 0 : Math.max(0, parsed);
+      await saveCurrentProgress();
+    }
+
+    async function updateWeightInput(setIndex, val) {
+      if (!activeSession) return;
+      activeSession.exercises[activeExIndex].sets[setIndex].weight = val.trim() || "0";
+      await saveCurrentProgress();
+    }
+
+    async function toggleSetComplete(setIndex) {
+      if (!activeSession) return;
+      const set = activeSession.exercises[activeExIndex].sets[setIndex];
+      set.completed = !set.completed;
+      await saveCurrentProgress();
+      
+      if (set.completed) {
+        startRestTimer(userSettings.defaultRest);
+      }
+      renderActiveWorkoutView();
+    }
+
+    async function saveCurrentProgress() {
+      if (activeSession) {
+        await dbSaveActiveState(activeSession);
+      }
+    }
+
+    async function getPreviousPerformanceText(exerciseId) {
+      const allWorkouts = await dbGetAllWorkouts();
+      // Sort descending by date
+      allWorkouts.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+
+      for (let w of allWorkouts) {
+        const foundEx = w.exercises.find(e => e.exerciseId === exerciseId);
+        if (foundEx && foundEx.sets.some(s => s.completed)) {
+          const completedSets = foundEx.sets.filter(s => s.completed);
+          const repsStr = completedSets.map(s => s.reps).join(", ");
+          const weightStr = completedSets[0] ? completedSets[0].weight : "";
+          return `Anterior: ${repsStr} reps · ${weightStr}${isNaN(parseFloat(weightStr)) ? '' : ' kg'}`;
+        }
+      }
+      return "Aún no hay registro anterior.";
+    }
+
+    function prevExercise() {
+      if (activeExIndex > 0) {
+        activeExIndex--;
+        renderActiveWorkoutView();
+      }
+    }
+
+    function nextExercise() {
+      if (!activeSession) return;
+      if (activeExIndex < activeSession.exercises.length - 1) {
+        activeExIndex++;
+        renderActiveWorkoutView();
+      } else {
+        finishWorkout();
+      }
+    }
+
+    function confirmAbandonWorkout() {
+      if (confirm("¿Estás seguro de que deseas abandonar el entrenamiento actual? Tu progreso no guardado se conservará en pausa.")) {
+        switchTab('home');
+      }
+    }
+
+    /* ==========================================================================
+       6. REST TIMER & AUDIO/VIBRATION NOTIFICATIONS
+       ========================================================================== */
+    function startRestTimer(seconds) {
+      clearInterval(timerInterval);
+      timerSecondsLeft = seconds;
+      timerRunning = true;
+      updateTimerDisplay();
+
+      timerInterval = setInterval(() => {
+        if (timerRunning) {
+          timerSecondsLeft--;
+          updateTimerDisplay();
+          if (timerSecondsLeft <= 0) {
+            clearInterval(timerInterval);
+            timerRunning = false;
+            triggerTimerEndAlert();
+          }
+        }
+      }, 1000);
+    }
+
+    function updateTimerDisplay() {
+      const mins = Math.floor(timerSecondsLeft / 60);
+      const secs = timerSecondsLeft % 60;
+      const formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      document.getElementById("timer-display").innerText = formatted;
+      
+      const toggleBtn = document.getElementById("timer-toggle-btn");
+      if (toggleBtn) {
+        toggleBtn.innerText = timerRunning ? "Pausa" : "Reanudar";
+      }
+    }
+
+    function toggleTimer() {
+      timerRunning = !timerRunning;
+      updateTimerDisplay();
+    }
+
+    function addTimerSeconds(sec) {
+      timerSecondsLeft += sec;
+      updateTimerDisplay();
+    }
+
+    function skipTimer() {
+      clearInterval(timerInterval);
+      timerSecondsLeft = 0;
+      timerRunning = false;
+      updateTimerDisplay();
+    }
+
+    function resetTimer() {
+      startRestTimer(userSettings.defaultRest);
+    }
+
+    function setTimerDefault(sec) {
+      userSettings.defaultRest = sec;
+      saveSettings();
+      startRestTimer(sec);
+    }
+
+    function triggerTimerEndAlert() {
+      // Sound using Web Audio API
+      if (userSettings.sound) {
+        try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) {
+            const ctx = new AudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(880, ctx.currentTime); // Pitch A5
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.4);
+          }
+        } catch (e) {
+          console.log("Audio not allowed or supported", e);
+        }
+      }
+
+      // Vibration API
+      if (userSettings.vibration && navigator.vibrate) {
+        navigator.vibrate([200, 100, 200, 100, 400]);
+      }
+    }
+
+    /* ==========================================================================
+       7. WORKOUT FINISH & SUMMARY
+       ========================================================================== */
+    async function finishWorkout() {
+      if (!activeSession) return;
+
+      activeSession.endTime = new Date().toISOString();
+      const start = new Date(activeSession.startTime);
+      const end = new Date(activeSession.endTime);
+      activeSession.durationMinutes = Math.max(1, Math.round((end - start) / (1000 * 60)));
+
+      // Save to permanent IndexedDB store
+      await dbSaveWorkout(activeSession);
+      await dbClearActiveState();
+
+      // Calculate totals for summary
+      let totalCompletedSets = 0;
+      let totalReps = 0;
+      activeSession.exercises.forEach(e => {
+        e.sets.forEach(s => {
+          if (s.completed) {
+            totalCompletedSets++;
+            totalReps += s.reps;
+          }
+        });
+      });
+
+      document.getElementById("summary-session-name").innerText = activeSession.sessionName;
+      document.getElementById("summary-duration").innerText = `${activeSession.durationMinutes} min`;
+      document.getElementById("summary-exercises").innerText = activeSession.exercises.length;
+      document.getElementById("summary-sets").innerText = totalCompletedSets;
+      document.getElementById("summary-reps").innerText = totalReps;
+
+      // Comparative neutral metrics with previous session
+      const previousComparison = await getNeutralComparison(activeSession.sessionId, activeSession.id, totalReps);
+      document.getElementById("summary-comparison-text").innerText = previousComparison;
+
+      switchTab('summary');
+    }
+
+    async function getNeutralComparison(sessionId, currentWorkoutId, currentReps) {
+      const all = await dbGetAllWorkouts();
+      const filtered = all.filter(w => w.sessionId === sessionId && w.id !== currentWorkoutId);
+      filtered.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+
+      if (filtered.length === 0) {
+        return "¡Primer registro de esta sesión!";
+      }
+
+      const last = filtered[0];
+      let lastReps = 0;
+      last.exercises.forEach(e => {
+        e.sets.forEach(s => { if (s.completed) lastReps += s.reps; });
+      });
+
+      return `Repeticiones totales: ${lastReps} → ${currentReps}`;
+    }
+
+    function finishAndGoHome() {
+      activeSession = null;
+      renderWeeklySchedule();
+      switchTab('home');
+    }
+
+    /* ==========================================================================
+       8. HISTORY VIEW
+       ========================================================================== */
+    async function renderHistoryList() {
+      const historyContainer = document.getElementById("history-list");
+      historyContainer.innerHTML = "";
+
+      const all = await dbGetAllWorkouts();
+      if (all.length === 0) {
+        historyContainer.innerHTML = `
+          <div class="text-center py-10 text-zinc-500 text-sm">
+            Aún no has completado ningún entrenamiento.
+          </div>
+        `;
+        return;
+      }
+
+      all.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+
+      all.forEach(w => {
+        let totalSets = 0;
+        w.exercises.forEach(e => totalSets += e.sets.filter(s => s.completed).length);
+
+        const card = document.createElement("div");
+        card.className = "bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-2 cursor-pointer active:scale-[0.99] transition";
+        card.onclick = () => openHistoryModal(w);
+
+        const formattedDate = new Date(w.startTime).toLocaleDateString('es-ES', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
+
+        card.innerHTML = `
+          <div class="flex justify-between items-start">
+            <div>
+              <h3 class="text-base font-bold text-white">${w.sessionName}</h3>
+              <p class="text-xs text-zinc-400 capitalize">${formattedDate}</p>
+            </div>
+            <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-brand-500/10 text-brand-accent border border-brand-500/30">
+              ${w.durationMinutes} min
+            </span>
+          </div>
+          <div class="text-xs text-zinc-400 flex gap-4 pt-1">
+            <span>🏋️ ${w.exercises.length} Ejercicios</span>
+            <span>✅ ${totalSets} Series completadas</span>
+          </div>
+        `;
+        historyContainer.appendChild(card);
+      });
+    }
+
+    function openHistoryModal(workout) {
+      document.getElementById("modal-title").innerText = workout.sessionName;
+      document.getElementById("modal-subtitle").innerText = new Date(workout.startTime).toLocaleString('es-ES');
+
+      const content = document.getElementById("modal-content");
+      content.innerHTML = "";
+
+      workout.exercises.forEach(e => {
+        const exBox = document.createElement("div");
+        exBox.className = "bg-zinc-800/60 p-3 rounded-xl space-y-1.5 border border-zinc-700/50";
+        
+        const completedSets = e.sets.filter(s => s.completed);
+        const setDetails = completedSets.map((s, idx) => `Serie ${idx + 1}: ${s.reps} reps @ ${s.weight}${isNaN(parseFloat(s.weight)) ? '' : ' kg'}`).join("<br>");
+
+        exBox.innerHTML = `
+          <p class="text-xs font-bold text-brand-accent">${e.name}</p>
+          <div class="text-xs text-zinc-300 font-mono leading-relaxed">
+            ${setDetails || '<span class="text-zinc-500">Sin series completadas</span>'}
+          </div>
+        `;
+        content.appendChild(exBox);
+      });
+
+      document.getElementById("history-modal").classList.remove("hidden");
+    }
+
+    function closeHistoryModal() {
+      document.getElementById("history-modal").classList.add("hidden");
+    }
+
+    /* ==========================================================================
+       9. PROGRESS ENGINE (Native HTML5 Canvas Graphing)
+       ========================================================================== */
+    function populateExerciseSelector() {
+      const select = document.getElementById("progress-exercise-select");
+      select.innerHTML = "";
+
+      // Gather all exercises across routine sessions
+      const exercisesMap = new Map();
+      Object.values(ROUTINE).forEach(session => {
+        session.exercises.forEach(ex => {
+          exercisesMap.set(ex.id, ex.name);
+        });
+      });
+
+      exercisesMap.forEach((name, id) => {
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.innerText = name;
+        select.appendChild(opt);
+      });
+    }
+
+    function setMetric(metric) {
+      selectedChartMetric = metric;
+      const metrics = ['reps', 'weight', 'volume', 'bestSet'];
+      metrics.forEach(m => {
+        const btn = document.getElementById(`metric-btn-${m}`);
+        if (m === metric) {
+          btn.className = "p-2 rounded-lg bg-brand-500 text-zinc-950 font-bold";
+        } else {
+          btn.className = "p-2 rounded-lg bg-zinc-800 text-zinc-300 font-semibold";
+        }
+      });
+      
+      const titles = {
+        reps: 'Repeticiones Totales por Sesión',
+        weight: 'Peso Máximo Utilizado (kg)',
+        volume: 'Volumen Total (Reps × Peso)',
+        bestSet: 'Mejor Serie (Reps)'
+      };
+      document.getElementById("chart-metric-title").innerText = titles[metric];
+      renderProgressChart();
+    }
+
+    async function renderProgressChart() {
+      const canvas = document.getElementById("progress-canvas");
+      const ctx = canvas.getContext("2d");
+      const exerciseId = document.getElementById("progress-exercise-select").value;
+
+      // Handle Canvas DPI scaling
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+      const width = rect.width;
+      const height = rect.height;
+
+      ctx.clearRect(0, 0, width, height);
+
+      const all = await dbGetAllWorkouts();
+      // Filter workouts containing this exercise
+      const dataPoints = [];
+
+      all.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+
+      all.forEach(w => {
+        const ex = w.exercises.find(e => e.exerciseId === exerciseId);
+        if (ex) {
+          const completed = ex.sets.filter(s => s.completed);
+          if (completed.length > 0) {
+            let val = 0;
+            if (selectedChartMetric === 'reps') {
+              val = completed.reduce((sum, s) => sum + s.reps, 0);
+            } else if (selectedChartMetric === 'weight') {
+              val = Math.max(...completed.map(s => parseFloat(s.weight) || 0));
+            } else if (selectedChartMetric === 'volume') {
+              val = completed.reduce((sum, s) => sum + (s.reps * (parseFloat(s.weight) || 1)), 0);
+            } else if (selectedChartMetric === 'bestSet') {
+              val = Math.max(...completed.map(s => s.reps));
+            }
+
+            dataPoints.push({
+              date: new Date(w.startTime).toLocaleDateString('es-ES', { month: 'numeric', day: 'numeric' }),
+              value: val
+            });
+          }
+        }
+      });
+
+      const emptyMsg = document.getElementById("chart-empty-msg");
+      if (dataPoints.length < 1) {
+        emptyMsg.classList.remove("hidden");
+        return;
+      } else {
+        emptyMsg.classList.add("hidden");
+      }
+
+      // Drawing Graph
+      const padding = 35;
+      const graphWidth = width - padding * 2;
+      const graphHeight = height - padding * 2;
+
+      const maxVal = Math.max(...dataPoints.map(d => d.value), 10);
+      const minVal = 0;
+
+      // Draw Grid Lines
+      ctx.strokeStyle = "#27272a";
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = padding + (graphHeight / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(padding, y);
+        ctx.lineTo(width - padding, y);
+        ctx.stroke();
+
+        // Y Labels
+        const labelVal = Math.round(maxVal - (maxVal / 4) * i);
+        ctx.fillStyle = "#71717a";
+        ctx.font = "10px sans-serif";
+        ctx.fillText(labelVal, 5, y + 3);
+      }
+
+      // Plot Points
+      const points = dataPoints.map((dp, idx) => {
+        const x = dataPoints.length === 1 ? width / 2 : padding + (graphWidth / (dataPoints.length - 1)) * idx;
+        const y = padding + graphHeight - ((dp.value - minVal) / (maxVal - minVal)) * graphHeight;
+        return { x, y, dp };
+      });
+
+      // Draw Line Path
+      ctx.beginPath();
+      ctx.strokeStyle = "#10b981";
+      ctx.lineWidth = 3;
+
+      points.forEach((pt, idx) => {
+        if (idx === 0) ctx.moveTo(pt.x, pt.y);
+        else ctx.lineTo(pt.x, pt.y);
+      });
+      ctx.stroke();
+
+      // Draw Points & X Labels
+      points.forEach(pt => {
+        // Circle Dot
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = "#34d399";
+        ctx.fill();
+        ctx.strokeStyle = "#121212";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Value tooltip text above point
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 10px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(pt.dp.value, pt.x, pt.y - 8);
+
+        // Date text on X Axis
+        ctx.fillStyle = "#a1a1aa";
+        ctx.font = "10px sans-serif";
+        ctx.fillText(pt.dp.date, pt.x, height - 10);
+      });
+    }
+
+    /* ==========================================================================
+       10. CONFIGURATION & DATA EXPORT/IMPORT
+       ========================================================================== */
+    async function loadSettings() {
+      userSettings.defaultRest = await dbGetSetting("defaultRest", 90);
+      userSettings.sound = await dbGetSetting("sound", true);
+      userSettings.vibration = await dbGetSetting("vibration", true);
+
+      document.getElementById("setting-default-rest").value = userSettings.defaultRest;
+      document.getElementById("setting-sound").checked = userSettings.sound;
+      document.getElementById("setting-vibration").checked = userSettings.vibration;
+    }
+
+    async function saveSettings() {
+      userSettings.defaultRest = parseInt(document.getElementById("setting-default-rest").value);
+      userSettings.sound = document.getElementById("setting-sound").checked;
+      userSettings.vibration = document.getElementById("setting-vibration").checked;
+
+      await dbSaveSetting("defaultRest", userSettings.defaultRest);
+      await dbSaveSetting("sound", userSettings.sound);
+      await dbSaveSetting("vibration", userSettings.vibration);
+    }
+
+    async function exportDataJSON() {
+      const allWorkouts = await dbGetAllWorkouts();
+      const exportObject = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        routine: ROUTINE,
+        workouts: allWorkouts,
+        settings: userSettings
+      };
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObject, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `migymprogreso_backup_${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function importDataJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (!parsed.version || !Array.isArray(parsed.workouts)) {
+            alert("Error: El archivo JSON no tiene un formato válido de Mi Gym Progreso.");
+            return;
+          }
+
+          if (confirm(`Se importarán ${parsed.workouts.length} entrenamientos. Esto sobrescribirá o actualizará tus datos actuales. ¿Continuar?`)) {
+            for (let w of parsed.workouts) {
+              await dbSaveWorkout(w);
+            }
+            alert("¡Importación realizada con éxito!");
+            renderWeeklySchedule();
+            switchTab('history');
+          }
+        } catch (err) {
+          alert("Error al leer el archivo JSON: " + err.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    /* ==========================================================================
+       11. SERVICE WORKER & PWA INSTALLATION
+       ========================================================================== */
+    async function registerServiceWorker() {
+      if ('serviceWorker' in navigator) {
+        const swCode = `
+          const CACHE_NAME = 'migymprogreso-v1';
+          self.addEventListener('install', (e) => {
+            self.skipWaiting();
+          });
+          self.addEventListener('activate', (e) => {
+            e.waitUntil(clients.claim());
+          });
+          self.addEventListener('fetch', (e) => {
+            e.respondWith(
+              caches.match(e.request).then((res) => {
+                return res || fetch(e.request).catch(() => caches.match('./'));
+              })
+            );
+          });
+        `;
+
+        const blob = new Blob([swCode], { type: 'application/javascript' });
+        const swUrl = URL.createObjectURL(blob);
+
+        try {
+          await navigator.serviceWorker.register(swUrl);
+          console.log("Service Worker registrado con éxito.");
+        } catch (err) {
+          console.log("Error registrando SW:", err);
+        }
+      }
+    }
+
+    // PWA Prompt Installation Listener
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const installContainer = document.getElementById("pwa-install-container");
+      if (installContainer) installContainer.classList.remove("hidden");
+    });
+
+    document.getElementById("pwa-install-btn")?.addEventListener('click', () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(() => {
+          deferredPrompt = null;
+          document.getElementById("pwa-install-container").classList.add("hidden");
+        });
+      }
+    });
+
+    // Helper to download code assets
+    function downloadPwaFile(type) {
+      let content = "";
+      let filename = "";
+
+      if (type === 'manifest') {
+        filename = "manifest.json";
+        content = JSON.stringify({
+          name: "Mi Gym Progreso",
+          short_name: "GymProgreso",
+          start_url: "./index.html",
+          display: "standalone",
+          background_color: "#121212",
+          theme_color: "#10B981"
+        }, null, 2);
+      } else if (type === 'sw') {
+        filename = "service-worker.js";
+        content = `const CACHE_NAME = 'migymprogreso-v1';
+self.addEventListener('install', (e) => self.skipWaiting());
+self.addEventListener('fetch', (e) => {
+  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+});`;
+      } else if (type === 'readme') {
+        filename = "README.md";
+        content = `# Mi Gym Progreso PWA
+
+Aplicación de seguimiento de rutina de fuerza Torso/Pierna en casa, diseñada para entrenamiento sin conexión a internet.
+
+## Instrucciones
+1. Abre index.html en tu navegador.
+2. Haz clic en "Instalable" o selecciona "Añadir a la pantalla de inicio" en tu navegador móvil.
+3. Todo el registro de repeticiones y peso se guarda automáticamente en IndexedDB.
+4. Exporta tu copia de respaldo JSON desde la pestaña Ajustes cuando quieras.`;
+      }
+
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+    }
+  </script>
+</body>
+</html>
